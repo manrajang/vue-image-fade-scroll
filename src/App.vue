@@ -1,17 +1,17 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <div v-for="i in 100" :key="i">{{ i }}</div>
+    <fade-scroll/>
+    <div v-for="i in 100" :key="i">{{ i }}</div>
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-
+import FadeScroll from '@/components/FadeScroll'
 export default {
   name: 'app',
   components: {
-    HelloWorld
+    FadeScroll
   }
 }
 </script>
