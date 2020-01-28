@@ -2,7 +2,7 @@
   <div id="app">
     <div v-for="i in 100" :key="i">{{ i }}</div>
     <fade-scroll/>
-    <div v-for="i in 100" :key="i">{{ i }}</div>
+    <div v-for="i in 100" :key="`a${i}`">{{ i }}</div>
   </div>
 </template>
 
