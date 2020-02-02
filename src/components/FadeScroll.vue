@@ -1,13 +1,13 @@
 <template>
-  <div>
-    <p id="top"></p>
-    <img id="fadeContent" src="img/a.jpg" alt="front image" :width="width" :height="height">
-    <template v-if="isFixed">
-      <canvas id="fadeCanvas" class="canvas_fixed" :width="canvasWidth" :height="canvasHeight"/>
-      <div class="fixed" @scroll="onScroll">
-        <div :style="{ height: `${canvasHeight * 2}px` }"></div>
-        <p id="bottom"></p>
-      </div>
+  <div v-if="isLoaded">
+    <template v-if="imgListHeight > canvasHeight">
+      <p id="top" ref="top"></p>
+      <canvas id="content" style="background: red;" :style="fixedStyle" :width="width" :height="canvasHeight"/>
+      <div v-if="isFixed" :style="{ height: `${imgListHeight}px` }"></div>
+      <p id="bottom"></p>
+    </template>
+    <template v-else>
+      <img v-for="(item, index) in imgList" :key="index" :src="item" :width="width" :height="height">
     </template>
   </div>
 </template>
@@ -15,9 +15,36 @@
 <script>
 import 'intersection-observer'
 
+const regex = /(auto|scroll)/
+
+function getStyleValue (node, prop) {
+  return getComputedStyle(node, null).getPropertyValue(prop)
+}
+function isScroll (node) {
+  return regex.test(getStyleValue(node, 'overflow') + getStyleValue(node, 'overflow-y') + getStyleValue(node, 'overflow-x'))
+}
+function findScroll (node) {
+  return (!node || node === document.body) ? window : (isScroll(node) ? node : findScroll(node.parentNode))
+}
+function getOffsetHeight (node) {
+  return node.innerHeight || node.offsetHeight
+}
+function getScrollTop (node) {
+  return node.scrollY || node.scrollTop
+}
+function loadImage (src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 export default {
   name: 'FadeScroll',
   props: {
+    imgList: { type: Array, default: () => ['img/a.jpg', 'img/b.jpg', 'img/c.jpg', 'img/d.jpg'] },
     width: { type: Number, default: 800 },
     height: { type: Number, default: 600 },
   },
@@ -28,179 +55,151 @@ export default {
       isShowContent: false,
       isShowBottom: false,
       isScrolling: false,
-      isFull: false,
-      incWidth: 0,
-      incHeight: 0,
-      canvasWidth: window.innerWidth,
-      canvasHeight: window.innerHeight,
+      canvasHeight: 0,
+      canvas: null,
+      ctx: null,
+      imgObjList: [],
+      curImgIndex: 0,
+      cntPerPage: 1,
+      scrollEl: null,
+      isLoaded: false
     }
   },
   computed: {
+    imgListHeight () {
+      return (this.imgList.length - 1 || 1) * this.height
+    },
     isFixed () {
       return !this.isShowTop && this.isShowContent
     },
-    containerHeight () {
-      return this.height + 2 * this.incHeight + (this.isFull ? 2 * window.innerHeight : 0)
+    fixedStyle () {
+      if (this.canvas) {
+        return this.isFixed ? { position: 'fixed', top: `${this.scrollEl.offsetTop}px`, left: `${this.canvas.offsetLeft}px`, 'pointer-events': 'none' } : null
+      }
+      return null
     },
-    imgHeight () {
-      return this.height + this.incHeight
-    },
-    fakeHeight () {
-      return this.height + this.incHeight
-    },
-    test () {
-      return this.$refs.root.offsetTop
-    },
-  },
-  watch: {
-    isFixed (value) {
-      window.document.body.style.overflow = value ? 'hidden' : 'auto'
-    }
   },
   mounted () {
-    if (!this.io) {
-      this.io = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          const { target, isIntersecting } = entry
-          const { id } = target
-          if (id === 'top') {
-            this.isShowTop = entry.isIntersecting
-          } else if (id === 'fadeContent') {
-            this.isShowContent = entry.isIntersecting
-          }
-        })
-      }, { rootMargin: `-${(window.innerHeight / 2) - (this.height / 2)}px` })
+    if (!this.scrollEl) {
+      this.scrollEl = findScroll(this.$parent.$el)
+      this.canvasHeight = getOffsetHeight(this.scrollEl)
+      for (let i = 0, length = this.imgList.length; i < length; i++) {
+        if (this.height * (i + 1) > this.canvasHeight) {
+          this.curImgIndex = i
+          this.cntPerPage = i + 1
+          break
+        }
+      }
     }
-    this.$nextTick(() => {
-      this.io.observe(document.getElementById('top'))
-      this.io.observe(document.getElementById('fadeContent'))
-    })
-    // window.addEventListener('scroll', this.onScroll)
+    this.isLoaded = true
+    if (this.imgListHeight > this.canvasHeight) {
+      this.$nextTick(() => this.initFadeInfo())
+    }
   },
   beforeDestroy () {
     if (this.io) {
       this.io.disconnect()
     }
-    // window.removeEventListener('scroll', this.onScroll)
+    this.scrollEl.removeEventListener('scroll', this.onScroll)
   },
   methods: {
-    onCanvasScroll () {
-      console.log('test')
+    initFadeInfo () {
+      if (!this.io) {
+        this.io = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            const { target, isIntersecting } = entry
+            const { id } = target
+            if (id === 'top') {
+              this.isShowTop = entry.isIntersecting
+            } else if (id === 'content') {
+              this.isShowContent = entry.isIntersecting
+            }
+          })
+        })
+      }
+      this.$nextTick(() => {
+        this.io.observe(document.getElementById('top'))
+        this.io.observe(document.getElementById('content'))
+      })
+      if (!this.canvas) {
+        this.canvas = document.getElementById('content')
+      }
+      if (!this.ctx) {
+        this.ctx = this.canvas.getContext('2d')
+      }
+      this.loadImageList().then(() => this.render())
+      this.scrollEl.addEventListener('scroll', this.onScroll)
+    },
+    async loadImageList () {
+      this.imgObjList = []
+      const start = this.curImgIndex + 1
+      for (let i = Math.max(start - this.cntPerPage, 0), length = Math.min(start + 1, this.imgList.length); i < length; i++) {
+        const img = await loadImage(this.imgList[i])
+        this.imgObjList.push({ key: i, img })
+      }
+      return Promise.resolve()
+    },
+    render (inc = 0, diff) {
+      this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+      for (let i = 0; i < this.cntPerPage; i++) {
+        if (diff) {
+          const sY1 = this.height * i - inc
+          const sHeight1 = this.height - diff
+          const sY2 = sY1 + sHeight1
+          const sHeight2 = diff
+          this.ctx.save()
+          this.ctx.beginPath()
+          this.ctx.rect(0, sY1, this.width, sHeight1)
+          this.ctx.clip()
+          this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
+          this.ctx.restore()
+          this.ctx.save()
+          this.ctx.beginPath()
+          this.ctx.rect(0, sY2, this.width, sHeight2)
+          this.ctx.clip()
+          this.ctx.drawImage(this.imgObjList[i + 1].img, 0, this.height * i - inc, this.width, this.height)
+          this.ctx.restore()
+        } else {
+          this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
+        }
+      }
     },
     onScroll (event) {
       if (!this.isScrolling) {
         window.requestAnimationFrame(() => {
           if (this.isFixed) {
-            const canvas = document.getElementById('fadeCanvas')
-            const ctx = canvas.getContext('2d')
-            const image = document.getElementById('fadeContent')
-            const { left, top } = image.getBoundingClientRect()
-            ctx.drawImage(image, left, top, this.width, this.height)
-            ctx.scale(2, 2)
-            ctx.drawImage(image, left, top, this.width, this.height)
-            console.log(event)
+            // 실제 diff와, 고정 diff 중 작은거
+            const scrollTop = getScrollTop(this.scrollEl)
+            const diff = scrollTop - this.$refs.top.offsetTop
+            const currentHeight = diff + this.canvasHeight
+            const prevIndex = this.curImgIndex
+            for (let i = 0, length = this.imgList.length - 1; i < length; i++) {
+              if (currentHeight < this.height * (i + 1)) {
+                if (this.curImgIndex !== i) {
+                  this.curImgIndex = i
+                }
+                break
+              }
+            }
+            const scrollDiff = Math.min(diff, this.height * this.cntPerPage - this.canvasHeight)
+            if (prevIndex === this.curImgIndex) {
+              if (this.curImgIndex < this.cntPerPage) {
+                this.render(scrollDiff)
+              } else {
+                this.render(scrollDiff, currentHeight - this.height * this.curImgIndex)
+              }
+            } else {
+              this.loadImageList().then(() => this.render(scrollDiff))
+            }
           }
-
-          //       // window.document.body.style.overflowY = 'hidden'
-          //       const { innerWidth, innerHeight } = window
-          //       const diffHeight = innerHeight - this.height
-          //       const rateHeight = innerHeight / diffHeight
-          //       if (this.isShowBottom) {
-          //         const incHeight = window.scrollY - (this.$refs.root.offsetTop + this.$refs.bottom.offsetTop)
-          //         console.log(incHeight)
-          //         console.log(window.scrollY)
-          //         console.log(this.$refs.bottom.offsetTop)
-          //         // this.isFull = false
-          //         // this.isFull = (innerHeight + incHeight) < (diffHeight - 5)
-          //         this.changeFakeRect(0, (innerHeight + incHeight) < diffHeight ? diffHeight : incHeight)
-          //       } else {
-          //         const incHeight = window.scrollY - this.$refs.root.offsetTop
-          //         this.isFull = incHeight > (diffHeight + 5)
-          //         this.changeFakeRect(0, incHeight > diffHeight ? diffHeight : incHeight)
-          //       }
-
           this.isScrolling = false
         })
         this.isScrolling = true
       }
     },
-    changeFakeRect (rateWidth = 0, rateHeight = 0) {
-      // console.log(rateHeight)
-      const { content, fakeContent, front } = this.$refs
-      if (!this.isShowTop && this.isShowContent) {
-        // const { offsetWidth, offsetHeight } = content
-        // content.style.width = `${offsetWidth}px`
-        this.incHeight = rateHeight
-        // fakeContent.style.height = `${this.height + 2 * rateHeight}px`
-      } else {
-        // content.style.width = null
-        // fakeContent.style.height = null
-      }
-    }
   }
 }
 </script>
 
 <style lang="scss" scoped>
-  .wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    overflow: scroll;
-  }
-
-  .fixed {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    overflow: auto;
-  }
-
-  .canvas_fixed {
-    position: fixed;
-    top: 0;
-    left: 0;
-  }
-
-  .root {
-    position: relative;
-
-    img {
-      display: block;
-      // vertical-align: bottom;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      margin: 0 auto
-    }
-
-    .top {
-      margin: 0
-    }
-
-    .fake {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-    }
-
-    .bottom {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      margin: 0;
-    }
-
-    .stop-scrolling {
-      overflow: hidden;
-    }
-  }
 </style>
