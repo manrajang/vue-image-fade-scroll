@@ -1,5 +1,5 @@
 <template>
-  <div id="app" style="overflow: auto; height: 800px">
+  <div id="app">
     <div v-for="i in 100" :key="i">{{ i }}</div>
     <fade-scroll/>
     <div v-for="i in 100" :key="`a${i}`">{{ i }}</div>

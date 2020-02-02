@@ -74,7 +74,7 @@ export default {
     },
     fixedStyle () {
       if (this.canvas) {
-        return this.isFixed ? { position: 'fixed', top: `${this.scrollEl.offsetTop}px`, left: `${this.canvas.offsetLeft}px`, 'pointer-events': 'none' } : null
+        return this.isFixed ? { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${this.canvas.offsetLeft}px`, 'pointer-events': 'none' } : null
       }
       return null
     },
