@@ -62,13 +62,11 @@ export default {
       curImgIndex: 0,
       cntPerPage: 1,
       scrollEl: null,
-      isLoaded: false
+      isLoaded: false,
+      imgListHeight: 0,
     }
   },
   computed: {
-    imgListHeight () {
-      return (this.imgList.length - 1 || 1) * this.height
-    },
     isFixed () {
       return !this.isShowTop && this.isShowContent
     },
@@ -81,20 +79,19 @@ export default {
   },
   mounted () {
     if (!this.scrollEl) {
+      const { length } = this.imgList
       this.scrollEl = findScroll(this.$parent.$el)
       this.canvasHeight = getOffsetHeight(this.scrollEl)
-      for (let i = 0, length = this.imgList.length; i < length; i++) {
+      this.imgListHeight = this.canvasHeight * (length - 1) + (this.canvasHeight - this.height)
+      for (let i = 0; i < length; i++) {
         if (this.height * (i + 1) > this.canvasHeight) {
-          this.curImgIndex = i
           this.cntPerPage = i + 1
           break
         }
       }
     }
     this.isLoaded = true
-    if (this.imgListHeight > this.canvasHeight) {
-      this.$nextTick(() => this.initFadeInfo())
-    }
+    this.$nextTick(() => this.initFadeInfo())
   },
   beforeDestroy () {
     if (this.io) {
@@ -127,41 +124,57 @@ export default {
       if (!this.ctx) {
         this.ctx = this.canvas.getContext('2d')
       }
-      this.loadImageList().then(() => this.render())
+      this.loadImageList().then(() => this.defaultRender())
       this.scrollEl.addEventListener('scroll', this.onScroll)
     },
     async loadImageList () {
       this.imgObjList = []
-      const start = this.curImgIndex + 1
-      for (let i = Math.max(start - this.cntPerPage, 0), length = Math.min(start + 1, this.imgList.length); i < length; i++) {
+      for (let i = 0; i < this.cntPerPage; i++) {
         const img = await loadImage(this.imgList[i])
         this.imgObjList.push({ key: i, img })
       }
       return Promise.resolve()
     },
-    render (inc = 0, diff) {
-      this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+    render (inc = 0) {
+      // this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+      // for (let i = this.curImgIndex, lastIndex = i + 1; i <= lastIndex; i++) {
+      // if (diff) {
+      // this.ctx.save()
+      // this.ctx.beginPath()
+      // this.ctx.rect(0, this.height * i + inc, this.width, this.height)
+      // this.ctx.clip()
+      // this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i, this.width, this.canvasHeight)
+      // this.ctx.restore()
+      // const sY1 = this.canvasHeight + inc
+      // const sHeight1 = this.height - diff
+      // const sY2 = sY1 + sHeight1
+      // const sHeight2 = diff
+      this.ctx.save()
+      this.ctx.beginPath()
+      this.ctx.rect(0, 0, this.width, inc)
+      this.ctx.clip()
+      this.ctx.drawImage(this.imgObjList[this.curImgIndex - 1].img, 0, 0, this.width, this.canvasHeight)
+      this.ctx.restore()
+      this.ctx.save()
+      this.ctx.beginPath()
+      this.ctx.rect(0, inc, this.width, this.canvasHeight - inc)
+      this.ctx.clip()
+      this.ctx.drawImage(this.imgObjList[this.curImgIndex].img, 0, 0, this.width, this.canvasHeight)
+      this.ctx.restore()
+      // } else {
+      //   this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
+      // }
+      // }
+      // this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
+    },
+    defaultRender (inc = 0) {
       for (let i = 0; i < this.cntPerPage; i++) {
-        if (diff) {
-          const sY1 = this.height * i - inc
-          const sHeight1 = this.height - diff
-          const sY2 = sY1 + sHeight1
-          const sHeight2 = diff
-          this.ctx.save()
-          this.ctx.beginPath()
-          this.ctx.rect(0, sY1, this.width, sHeight1)
-          this.ctx.clip()
-          this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
-          this.ctx.restore()
-          this.ctx.save()
-          this.ctx.beginPath()
-          this.ctx.rect(0, sY2, this.width, sHeight2)
-          this.ctx.clip()
-          this.ctx.drawImage(this.imgObjList[i + 1].img, 0, this.height * i - inc, this.width, this.height)
-          this.ctx.restore()
-        } else {
-          this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
-        }
+        this.ctx.save()
+        this.ctx.beginPath()
+        this.ctx.rect(0, this.height * i + inc, this.width, this.height)
+        this.ctx.clip()
+        this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i, this.width, this.canvasHeight)
+        this.ctx.restore()
       }
     },
     onScroll (event) {
@@ -173,24 +186,37 @@ export default {
             const diff = scrollTop - this.$refs.top.offsetTop
             const currentHeight = diff + this.canvasHeight
             const prevIndex = this.curImgIndex
-            for (let i = 0, length = this.imgList.length - 1; i < length; i++) {
-              if (currentHeight < this.height * (i + 1)) {
+            // for (let i = 0, length = this.imgList.length - 1; i < length; i++) {
+            //   if (currentHeight < this.height * (i + 1)) {
+            //     if (this.curImgIndex !== i) {
+            //       this.curImgIndex = i
+            //     }
+            //     break
+            //   }
+            // }
+            const scrollDiff = Math.min(diff, this.height * this.cntPerPage - this.canvasHeight)
+            // if (prevIndex === this.curImgIndex) {
+            for (let i = 0, length = this.imgList.length; i < length; i++) {
+              if (diff < this.canvasHeight * i + this.canvasHeight - this.height) {
                 if (this.curImgIndex !== i) {
                   this.curImgIndex = i
                 }
                 break
               }
             }
-            const scrollDiff = Math.min(diff, this.height * this.cntPerPage - this.canvasHeight)
-            if (prevIndex === this.curImgIndex) {
-              if (this.curImgIndex < this.cntPerPage) {
-                this.render(scrollDiff)
-              } else {
-                this.render(scrollDiff, currentHeight - this.height * this.curImgIndex)
-              }
+            if (this.curImgIndex === 0) {
+              console.log('다시')
+              this.defaultRender(diff)
             } else {
-              this.loadImageList().then(() => this.render(scrollDiff))
+              console.log('종료')
+              // console.log(diff)
+              console.log(diff - (this.canvasHeight * this.curImgIndex - this.height))
+              // console.log((this.canvasHeight * this.curImgIndex) + (diff - (this.canvasHeight - this.height)))
+              this.render(diff - (this.canvasHeight * this.curImgIndex - this.height))
             }
+            // } else {
+            // this.loadImageList().then(() => this.render(scrollDiff))
+            // }
           }
           this.isScrolling = false
         })
