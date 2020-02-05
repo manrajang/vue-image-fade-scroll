@@ -1,14 +1,9 @@
 <template>
-  <div v-if="isLoaded">
-    <template v-if="imgListHeight > canvasHeight">
-      <p id="top" ref="top"></p>
-      <canvas id="content" style="background: red;" :style="fixedStyle" :width="width" :height="canvasHeight"/>
-      <div v-if="isFixed" :style="{ height: `${imgListHeight}px` }"></div>
-      <p id="bottom"></p>
-    </template>
-    <template v-else>
-      <img v-for="(item, index) in imgList" :key="index" :src="item" :width="width" :height="height">
-    </template>
+  <div v-if="isLoaded" style="position: relative;">
+    <p id="top" ref="top"></p>
+    <canvas id="content" :style="fixedStyle" :width="width" :height="canvasHeight"/>
+    <div ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
+    <p id="bottom"></p>
   </div>
 </template>
 
@@ -29,9 +24,6 @@ function findScroll (node) {
 function getOffsetHeight (node) {
   return node.innerHeight || node.offsetHeight
 }
-function getScrollTop (node) {
-  return node.scrollY || node.scrollTop
-}
 function loadImage (src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -40,6 +32,13 @@ function loadImage (src) {
     img.src = src
   })
 }
+function findItem (findIndex) {
+  return function ({ key }) {
+    return key === findIndex
+  }
+}
+
+const SCROLL_MODE = { NONE: 0, SCROLLING: 1, END: 2 }
 
 export default {
   name: 'FadeScroll',
@@ -51,38 +50,58 @@ export default {
   data () {
     return {
       io: null,
-      isShowTop: false,
-      isShowContent: false,
-      isShowBottom: false,
+      isShowMap: { top: false, content: false, bottom: false },
+      scrollMode: SCROLL_MODE.NONE,
+      scrollEl: null,
       isScrolling: false,
-      canvasHeight: 0,
+      isLoaded: false,
       canvas: null,
       ctx: null,
-      imgObjList: [],
+      canvasHeight: 0,
+      loadedImgList: [],
+      imgListHeight: 0,
+      imgDiff: 0, // 실제 이미지 높이와 캔버스 높이 차이
       curImgIndex: 0,
       cntPerPage: 1,
-      scrollEl: null,
-      isLoaded: false,
-      imgListHeight: 0,
     }
   },
   computed: {
     isFixed () {
-      return !this.isShowTop && this.isShowContent
+      return this.isTopFixed && this.scrollMode === SCROLL_MODE.SCROLLING
+    },
+    isTopFixed () {
+      return !this.isShowMap.top && this.isShowMap.content
     },
     fixedStyle () {
       if (this.canvas) {
-        return this.isFixed ? { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${this.canvas.offsetLeft}px`, 'pointer-events': 'none' } : null
+        const { fake } = this.$refs
+        if (this.isFixed) {
+          return { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${fake.getBoundingClientRect().left}px`, 'pointer-events': 'none' }
+        } else {
+          const style = { position: 'absolute', left: `${fake.offsetLeft}px`, 'pointer-events': 'none' }
+          if (this.isShowMap.bottom) {
+            style.bottom = 0
+          } else {
+            style.top = 0
+          }
+          return style
+        }
       }
       return null
     },
+  },
+  watch: {
+    isTopFixed (value) {
+      this.scrollMode = value ? SCROLL_MODE.SCROLLING : SCROLL_MODE.NONE
+    }
   },
   mounted () {
     if (!this.scrollEl) {
       const { length } = this.imgList
       this.scrollEl = findScroll(this.$parent.$el)
       this.canvasHeight = getOffsetHeight(this.scrollEl)
-      this.imgListHeight = this.canvasHeight * (length - 1) + (this.canvasHeight - this.height)
+      this.imgDiff = Math.max(this.canvasHeight - this.height, 0)
+      this.imgListHeight = this.canvasHeight * length + this.imgDiff
       for (let i = 0; i < length; i++) {
         if (this.height * (i + 1) > this.canvasHeight) {
           this.cntPerPage = i + 1
@@ -102,121 +121,95 @@ export default {
   methods: {
     initFadeInfo () {
       if (!this.io) {
-        this.io = new IntersectionObserver(entries => {
-          entries.forEach(entry => {
-            const { target, isIntersecting } = entry
-            const { id } = target
-            if (id === 'top') {
-              this.isShowTop = entry.isIntersecting
-            } else if (id === 'content') {
-              this.isShowContent = entry.isIntersecting
-            }
-          })
-        })
+        this.io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => this.isShowMap[target.id] = isIntersecting))
       }
-      this.$nextTick(() => {
-        this.io.observe(document.getElementById('top'))
-        this.io.observe(document.getElementById('content'))
-      })
       if (!this.canvas) {
         this.canvas = document.getElementById('content')
       }
       if (!this.ctx) {
         this.ctx = this.canvas.getContext('2d')
       }
-      this.loadImageList().then(() => this.defaultRender())
+      this.io.observe(document.getElementById('top'))
+      this.io.observe(this.canvas)
+      this.io.observe(document.getElementById('bottom'))
+      this.loadImageList().then(() => this.renderList(0))
       this.scrollEl.addEventListener('scroll', this.onScroll)
     },
     async loadImageList () {
-      this.imgObjList = []
-      for (let i = 0; i < this.cntPerPage; i++) {
-        const img = await loadImage(this.imgList[i])
-        this.imgObjList.push({ key: i, img })
+      const newImgObjList = []
+      for (let i = Math.max(this.curImgIndex - 1, 0), length = Math.min(this.curImgIndex + this.cntPerPage, this.imgList.length); i < length; i++) {
+        const item = this.loadedImgList.find(findItem(i))
+        if (item) {
+          newImgObjList.push(item)
+        } else {
+          const img = await loadImage(this.imgList[i])
+          newImgObjList.push({ key: i, img })
+        }
+        this.loadedImgList = newImgObjList
       }
       return Promise.resolve()
     },
-    render (inc = 0) {
-      // this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
-      // for (let i = this.curImgIndex, lastIndex = i + 1; i <= lastIndex; i++) {
-      // if (diff) {
-      // this.ctx.save()
-      // this.ctx.beginPath()
-      // this.ctx.rect(0, this.height * i + inc, this.width, this.height)
-      // this.ctx.clip()
-      // this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i, this.width, this.canvasHeight)
-      // this.ctx.restore()
-      // const sY1 = this.canvasHeight + inc
-      // const sHeight1 = this.height - diff
-      // const sY2 = sY1 + sHeight1
-      // const sHeight2 = diff
+    render ({ img }, y, clipY, clipHeight) {
       this.ctx.save()
       this.ctx.beginPath()
-      this.ctx.rect(0, 0, this.width, inc)
+      this.ctx.rect(0, clipY, this.width, clipHeight)
       this.ctx.clip()
-      this.ctx.drawImage(this.imgObjList[this.curImgIndex - 1].img, 0, 0, this.width, this.canvasHeight)
+      this.ctx.drawImage(img, 0, y, this.width, this.canvasHeight)
       this.ctx.restore()
-      this.ctx.save()
-      this.ctx.beginPath()
-      this.ctx.rect(0, inc, this.width, this.canvasHeight - inc)
-      this.ctx.clip()
-      this.ctx.drawImage(this.imgObjList[this.curImgIndex].img, 0, 0, this.width, this.canvasHeight)
-      this.ctx.restore()
-      // } else {
-      //   this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
-      // }
-      // }
-      // this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i - inc, this.width, this.height)
     },
-    defaultRender (inc = 0) {
-      for (let i = 0; i < this.cntPerPage; i++) {
-        this.ctx.save()
-        this.ctx.beginPath()
-        this.ctx.rect(0, this.height * i + inc, this.width, this.height)
-        this.ctx.clip()
-        this.ctx.drawImage(this.imgObjList[i].img, 0, this.height * i, this.width, this.canvasHeight)
-        this.ctx.restore()
+    renderList (startIndex, yInc = 0, clipYInc = 0) {
+      for (let i = startIndex, j = 0, length = i + this.cntPerPage; i < length; i++, j++) {
+        const img = this.loadedImgList.find(findItem(i))
+        if (img) {
+          const y = this.height * j - yInc
+          this.render(img, y, y + clipYInc, this.height)
+        }
+      }
+    },
+    renderFade (inc = 0) {
+      const curImg = this.loadedImgList.find(findItem(this.curImgIndex))
+      if (curImg) {
+        this.render(curImg, 0, 0, inc)
+      }
+      const prevImg = this.loadedImgList.find(findItem(this.curImgIndex - 1))
+      if (prevImg) {
+        this.render(prevImg, 0, inc, this.canvasHeight - inc)
       }
     },
     onScroll (event) {
       if (!this.isScrolling) {
         window.requestAnimationFrame(() => {
           if (this.isFixed) {
-            // 실제 diff와, 고정 diff 중 작은거
-            const scrollTop = getScrollTop(this.scrollEl)
-            const diff = scrollTop - this.$refs.top.offsetTop
-            const currentHeight = diff + this.canvasHeight
-            const prevIndex = this.curImgIndex
-            // for (let i = 0, length = this.imgList.length - 1; i < length; i++) {
-            //   if (currentHeight < this.height * (i + 1)) {
-            //     if (this.curImgIndex !== i) {
-            //       this.curImgIndex = i
-            //     }
-            //     break
-            //   }
-            // }
-            const scrollDiff = Math.min(diff, this.height * this.cntPerPage - this.canvasHeight)
-            // if (prevIndex === this.curImgIndex) {
-            for (let i = 0, length = this.imgList.length; i < length; i++) {
-              if (diff < this.canvasHeight * i + this.canvasHeight - this.height) {
-                if (this.curImgIndex !== i) {
-                  this.curImgIndex = i
+            const scrollDiff = Math.abs(this.$refs.top.getBoundingClientRect().top)
+            if (this.isShowMap.bottom) {
+              const clipHeight = this.imgListHeight - scrollDiff
+              const img = this.loadedImgList.find(findItem(this.curImgIndex))
+              this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+              if (clipHeight >= this.height) {
+                this.render(img, 0, 0, clipHeight)
+              } else {
+                this.renderList(this.curImgIndex - 1, this.height - this.imgDiff)
+                this.scrollMode = SCROLL_MODE.NONE
+              }
+            } else {
+              const prevIndex = this.curImgIndex
+              for (let i = 0, length = this.imgList.length; i < length; i++) {
+                if (scrollDiff < this.imgDiff + this.canvasHeight * i) {
+                  if (this.curImgIndex !== i) {
+                    this.curImgIndex = i
+                    this.loadImageList().then(() => this.renderFade())
+                  }
+                  break
                 }
-                break
+              }
+              if (this.curImgIndex === prevIndex) {
+                if (this.curImgIndex === 0) {
+                  this.renderList(this.curImgIndex, 0, scrollDiff)
+                } else {
+                  this.renderFade(scrollDiff - (this.canvasHeight * this.curImgIndex) + this.height)
+                }
               }
             }
-            if (this.curImgIndex === 0) {
-              console.log('다시')
-              this.defaultRender(diff)
-            } else {
-              console.log('종료')
-              // console.log(diff)
-              console.log(diff - (this.canvasHeight * this.curImgIndex - this.height))
-              // console.log((this.canvasHeight * this.curImgIndex) + (diff - (this.canvasHeight - this.height)))
-              this.render(diff - (this.canvasHeight * this.curImgIndex - this.height))
-            }
-            // } else {
-            // this.loadImageList().then(() => this.render(scrollDiff))
-            // }
           }
           this.isScrolling = false
         })
@@ -226,6 +219,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss" scoped>
-</style>
