@@ -1,9 +1,7 @@
 <template>
-  <div v-if="isLoaded" style="position: relative;">
-    <p id="top" ref="top"></p>
-    <canvas id="content" :style="fixedStyle" :width="width" :height="canvasHeight"/>
-    <div ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
-    <p id="bottom"></p>
+  <div style="position: relative;">
+    <canvas id="content" :style="canvasStyle" :width="width" :height="canvasHeight"/>
+    <div id="fake" ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
   </div>
 </template>
 
@@ -38,7 +36,7 @@ function findItem (findIndex) {
   }
 }
 
-const SCROLL_MODE = { NONE: 0, SCROLLING: 1, END: 2 }
+const SCROLL_MODE = { NONE: 0, UP_SCROLLING: 1, DOWN_SCROLLING: 2 }
 
 export default {
   name: 'FadeScroll',
@@ -50,11 +48,10 @@ export default {
   data () {
     return {
       io: null,
-      isShowMap: { top: false, content: false, bottom: false },
-      scrollMode: SCROLL_MODE.NONE,
+      isFixed: false,
+      isShowContent: false,
       scrollEl: null,
       isScrolling: false,
-      isLoaded: false,
       canvas: null,
       ctx: null,
       canvasHeight: 0,
@@ -66,23 +63,18 @@ export default {
     }
   },
   computed: {
-    isFixed () {
-      return this.isTopFixed && this.scrollMode === SCROLL_MODE.SCROLLING
-    },
-    isTopFixed () {
-      return !this.isShowMap.top && this.isShowMap.content
-    },
-    fixedStyle () {
+    canvasStyle () {
       if (this.canvas) {
         const { fake } = this.$refs
+        const { top, bottom, left } = fake.getBoundingClientRect()
         if (this.isFixed) {
-          return { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${fake.getBoundingClientRect().left}px`, 'pointer-events': 'none' }
+          return { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${left}px`, 'pointer-events': 'none' }
         } else {
           const style = { position: 'absolute', left: `${fake.offsetLeft}px`, 'pointer-events': 'none' }
-          if (this.isShowMap.bottom) {
-            style.bottom = 0
-          } else {
+          if (top > 0) {
             style.top = 0
+          } else {
+            style.bottom = 0
           }
           return style
         }
@@ -91,8 +83,12 @@ export default {
     },
   },
   watch: {
-    isTopFixed (value) {
-      this.scrollMode = value ? SCROLL_MODE.SCROLLING : SCROLL_MODE.NONE
+    isFixed (value) {
+      if (!value) {
+        if (this.$refs.fake.getBoundingClientRect().bottom < this.height) {
+          this.renderList(this.curImgIndex - 1, this.height - this.imgDiff)
+        }
+      }
     }
   },
   mounted () {
@@ -109,7 +105,6 @@ export default {
         }
       }
     }
-    this.isLoaded = true
     this.$nextTick(() => this.initFadeInfo())
   },
   beforeDestroy () {
@@ -121,7 +116,11 @@ export default {
   methods: {
     initFadeInfo () {
       if (!this.io) {
-        this.io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => this.isShowMap[target.id] = isIntersecting))
+        this.io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => {
+          const { top, bottom } = this.$refs.fake.getBoundingClientRect()
+          this.isShowContent = isIntersecting
+          this.isFixed = this.isShowContent && top <= 0 && bottom >= this.height
+        }))
       }
       if (!this.canvas) {
         this.canvas = document.getElementById('content')
@@ -129,9 +128,7 @@ export default {
       if (!this.ctx) {
         this.ctx = this.canvas.getContext('2d')
       }
-      this.io.observe(document.getElementById('top'))
-      this.io.observe(this.canvas)
-      this.io.observe(document.getElementById('bottom'))
+      this.io.observe(this.$refs.fake)
       this.loadImageList().then(() => this.renderList(0))
       this.scrollEl.addEventListener('scroll', this.onScroll)
     },
@@ -179,22 +176,16 @@ export default {
     onScroll (event) {
       if (!this.isScrolling) {
         window.requestAnimationFrame(() => {
-          if (this.isFixed) {
-            const scrollDiff = Math.abs(this.$refs.top.getBoundingClientRect().top)
-            if (this.isShowMap.bottom) {
-              const clipHeight = this.imgListHeight - scrollDiff
-              const img = this.loadedImgList.find(findItem(this.curImgIndex))
-              this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
-              if (clipHeight >= this.height) {
-                this.render(img, 0, 0, clipHeight)
-              } else {
-                this.renderList(this.curImgIndex - 1, this.height - this.imgDiff)
-                this.scrollMode = SCROLL_MODE.NONE
-              }
-            } else {
+          if (this.isShowContent) {
+            const { top, bottom } = this.$refs.fake.getBoundingClientRect()
+            this.isFixed = top <= 0 && bottom >= this.height
+            if (this.isFixed) {
+              const scrollX = Math.abs(top) - this.imgDiff
               const prevIndex = this.curImgIndex
-              for (let i = 0, length = this.imgList.length; i < length; i++) {
-                if (scrollDiff < this.imgDiff + this.canvasHeight * i) {
+              const { length } = this.imgList
+              const totalCanvasHeight = this.canvasHeight * (length - 1)
+              for (let i = 0; i < length; i++) {
+                if (scrollX < this.canvasHeight * i) {
                   if (this.curImgIndex !== i) {
                     this.curImgIndex = i
                     this.loadImageList().then(() => this.renderFade())
@@ -202,12 +193,13 @@ export default {
                   break
                 }
               }
-              if (this.curImgIndex === prevIndex) {
-                if (this.curImgIndex === 0) {
-                  this.renderList(this.curImgIndex, 0, scrollDiff)
-                } else {
-                  this.renderFade(scrollDiff - (this.canvasHeight * this.curImgIndex) + this.height)
-                }
+              if (scrollX < 0) {
+                this.renderList(this.curImgIndex, 0, -top)
+              } else if (scrollX > totalCanvasHeight) {
+                this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+                this.render(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalCanvasHeight - scrollX)
+              } else if (this.curImgIndex === prevIndex) {
+                this.renderFade(scrollX - (this.canvasHeight * (this.curImgIndex - 1)))
               }
             }
           }
