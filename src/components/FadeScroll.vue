@@ -1,5 +1,5 @@
 <template>
-  <div style="position: relative;">
+  <div ref="container" style="position: relative; font-size: 0;">
     <canvas id="content" :style="canvasStyle" :width="width" :height="canvasHeight"/>
     <div id="fake" ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
   </div>
@@ -21,6 +21,9 @@ function findScroll (node) {
 }
 function getOffsetHeight (node) {
   return node.innerHeight || node.offsetHeight
+}
+function getScrollTop ({ scrollY, scrollTop, offsetTop }) {
+  return scrollY || (scrollTop && offsetTop + scrollTop) || 0
 }
 function loadImage (src) {
   return new Promise((resolve, reject) => {
@@ -58,7 +61,7 @@ export default {
       loadedImgList: [],
       imgListHeight: 0,
       imgDiff: 0, // 실제 이미지 높이와 캔버스 높이 차이
-      curImgIndex: 0,
+      curImgIndex: -1,
       cntPerPage: 1,
     }
   },
@@ -81,15 +84,6 @@ export default {
       }
       return null
     },
-  },
-  watch: {
-    isFixed (value) {
-      if (!value) {
-        if (this.$refs.fake.getBoundingClientRect().bottom < this.height) {
-          this.renderList(this.curImgIndex - 1, this.height - this.imgDiff)
-        }
-      }
-    }
   },
   mounted () {
     if (!this.scrollEl) {
@@ -129,7 +123,7 @@ export default {
         this.ctx = this.canvas.getContext('2d')
       }
       this.io.observe(this.$refs.fake)
-      this.loadImageList().then(() => this.renderList(0))
+      this.render()
       this.scrollEl.addEventListener('scroll', this.onScroll)
     },
     async loadImageList () {
@@ -146,7 +140,7 @@ export default {
       }
       return Promise.resolve()
     },
-    render ({ img }, y, clipY, clipHeight) {
+    renderImg ({ img }, y, clipY, clipHeight) {
       this.ctx.save()
       this.ctx.beginPath()
       this.ctx.rect(0, clipY, this.width, clipHeight)
@@ -159,49 +153,60 @@ export default {
         const img = this.loadedImgList.find(findItem(i))
         if (img) {
           const y = this.height * j - yInc
-          this.render(img, y, y + clipYInc, this.height)
+          this.renderImg(img, y, y + clipYInc, this.height)
         }
       }
     },
     renderFade (inc = 0) {
       const curImg = this.loadedImgList.find(findItem(this.curImgIndex))
       if (curImg) {
-        this.render(curImg, 0, 0, inc)
+        this.renderImg(curImg, 0, 0, inc)
       }
       const prevImg = this.loadedImgList.find(findItem(this.curImgIndex - 1))
       if (prevImg) {
-        this.render(prevImg, 0, inc, this.canvasHeight - inc)
+        this.renderImg(prevImg, 0, inc, this.canvasHeight - inc)
+      }
+    },
+    async render () {
+      const { top, bottom } = this.$refs.fake.getBoundingClientRect()
+      // const top = getScrollTop(this.scrollEl) - this.$refs.container.offsetTop
+      const scrollX = Math.abs(top) - this.imgDiff
+      const { length } = this.imgList
+      // console.log(getScrollTop(this.scrollEl) - this.$refs.container.offsetTop)
+      // console.log(this.scrollEl.offsetBottom)
+      this.isFixed = top <= 0 && bottom >= this.height
+      for (let i = 0; i < length; i++) {
+        if (scrollX < this.canvasHeight * i) {
+          if (this.curImgIndex !== i) {
+            this.curImgIndex = i
+            await this.loadImageList()
+          }
+          break
+        }
+      }
+      if (this.isFixed) {
+        const totalCanvasHeight = this.canvasHeight * (length - 1)
+        if (scrollX < 0) {
+          this.renderList(this.curImgIndex, 0, -top)
+        } else if (scrollX > totalCanvasHeight) {
+          this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
+          this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalCanvasHeight - scrollX)
+        } else {
+          this.renderFade(scrollX - (this.canvasHeight * (this.curImgIndex - 1)))
+        }
+      } else {
+        if (top > 0) {
+          this.renderList(0)
+        } else if (bottom < this.height) {
+          this.renderList(this.curImgIndex - 1, this.height - this.imgDiff)
+        }
       }
     },
     onScroll (event) {
       if (!this.isScrolling) {
         window.requestAnimationFrame(() => {
           if (this.isShowContent) {
-            const { top, bottom } = this.$refs.fake.getBoundingClientRect()
-            this.isFixed = top <= 0 && bottom >= this.height
-            if (this.isFixed) {
-              const scrollX = Math.abs(top) - this.imgDiff
-              const prevIndex = this.curImgIndex
-              const { length } = this.imgList
-              const totalCanvasHeight = this.canvasHeight * (length - 1)
-              for (let i = 0; i < length; i++) {
-                if (scrollX < this.canvasHeight * i) {
-                  if (this.curImgIndex !== i) {
-                    this.curImgIndex = i
-                    this.loadImageList().then(() => this.renderFade())
-                  }
-                  break
-                }
-              }
-              if (scrollX < 0) {
-                this.renderList(this.curImgIndex, 0, -top)
-              } else if (scrollX > totalCanvasHeight) {
-                this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
-                this.render(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalCanvasHeight - scrollX)
-              } else if (this.curImgIndex === prevIndex) {
-                this.renderFade(scrollX - (this.canvasHeight * (this.curImgIndex - 1)))
-              }
-            }
+            this.render()
           }
           this.isScrolling = false
         })
