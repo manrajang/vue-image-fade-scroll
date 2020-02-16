@@ -1,7 +1,7 @@
 <template>
   <div ref="container" style="position: relative; font-size: 0;">
     <canvas id="content" :style="canvasStyle" :width="width" :height="canvasHeight"/>
-    <div id="fake" ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
+    <div ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
   </div>
 </template>
 
@@ -69,12 +69,11 @@ export default {
     canvasStyle () {
       if (this.canvas) {
         const { fake } = this.$refs
-        const { top, bottom, left } = fake.getBoundingClientRect()
         if (this.isFixed) {
-          return { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${left}px`, 'pointer-events': 'none' }
+          return { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${fake.getBoundingClientRect().left}px`, 'pointer-events': 'none' }
         } else {
           const style = { position: 'absolute', left: `${fake.offsetLeft}px`, 'pointer-events': 'none' }
-          if (top > 0) {
+          if (this.getBounds().top > 0) {
             style.top = 0
           } else {
             style.bottom = 0
@@ -111,7 +110,7 @@ export default {
     initFadeInfo () {
       if (!this.io) {
         this.io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => {
-          const { top, bottom } = this.$refs.fake.getBoundingClientRect()
+          const { top, bottom } = this.getBounds()
           this.isShowContent = isIntersecting
           this.isFixed = this.isShowContent && top <= 0 && bottom >= this.height
         }))
@@ -123,7 +122,7 @@ export default {
         this.ctx = this.canvas.getContext('2d')
       }
       this.io.observe(this.$refs.fake)
-      this.render()
+      this.$nextTick(() => this.render())
       this.scrollEl.addEventListener('scroll', this.onScroll)
     },
     async loadImageList () {
@@ -139,6 +138,10 @@ export default {
         this.loadedImgList = newImgObjList
       }
       return Promise.resolve()
+    },
+    getBounds () {
+      const top = this.$refs.container.offsetTop - getScrollTop(this.scrollEl)
+      return { top, bottom: top + this.imgListHeight }
     },
     renderImg ({ img }, y, clipY, clipHeight) {
       this.ctx.save()
@@ -168,12 +171,9 @@ export default {
       }
     },
     async render () {
-      const { top, bottom } = this.$refs.fake.getBoundingClientRect()
-      // const top = getScrollTop(this.scrollEl) - this.$refs.container.offsetTop
+      const { top, bottom } = this.getBounds()
       const scrollX = Math.abs(top) - this.imgDiff
       const { length } = this.imgList
-      // console.log(getScrollTop(this.scrollEl) - this.$refs.container.offsetTop)
-      // console.log(this.scrollEl.offsetBottom)
       this.isFixed = top <= 0 && bottom >= this.height
       for (let i = 0; i < length; i++) {
         if (scrollX < this.canvasHeight * i) {
