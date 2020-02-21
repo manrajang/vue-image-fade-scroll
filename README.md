@@ -37,6 +37,8 @@ Vue.use(VueImageFadeScroll)
 ```
 
 ### Props
-imgList: { type: Array, required: true }
-width: { type: Number, default: 800 }
-height: { type: Number, default: 600 }
+| Prop                          | Type               | Default     | Description                              |
+|-------------------------------|--------------------|:-----------:|------------------------------------------|
+| imgList                       | Array              | --          | Image List (required)                    |
+| width                         | Number             | 800         | Image Width                              |
+| height                        | Number             | 600         | Image Height                             |
