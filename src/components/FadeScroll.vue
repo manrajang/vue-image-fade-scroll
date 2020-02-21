@@ -44,7 +44,7 @@ const SCROLL_MODE = { NONE: 0, UP_SCROLLING: 1, DOWN_SCROLLING: 2 }
 export default {
   name: 'FadeScroll',
   props: {
-    imgList: { type: Array, default: () => ['img/a.jpg', 'img/b.jpg', 'img/c.jpg', 'img/d.jpg'] },
+    imgList: { type: Array, required: true },
     width: { type: Number, default: 800 },
     height: { type: Number, default: 600 },
   },
