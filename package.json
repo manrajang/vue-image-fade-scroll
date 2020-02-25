@@ -1,13 +1,13 @@
 {
   "name": "vue-image-fade-scroll",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": false,
-  "main": "dist/ImageFadScroll.common.js",
+  "main": "dist/imageFadeScroll.common.js",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "bundle": "vue-cli-service build --target lib --name ImageFadeScroll ./src/components/index.js"
+    "bundle": "vue-cli-service build --target lib --name imageFadeScroll ./src/components/index.js"
   },
   "dependencies": {
     "core-js": "^3.4.4",
@@ -28,8 +28,8 @@
   },
   "license": "MIT",
   "files": [
-    "dist/ImageFadeScroll.umd.js",
-    "dist/ImageFadeScroll.common.js",
+    "dist/imageFadeScroll.umd.js",
+    "dist/imageFadeScroll.common.js",
     "README.md"
   ],
   "author": {

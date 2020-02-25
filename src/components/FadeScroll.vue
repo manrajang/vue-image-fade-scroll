@@ -39,8 +39,6 @@ function findItem (findIndex) {
   }
 }
 
-const SCROLL_MODE = { NONE: 0, UP_SCROLLING: 1, DOWN_SCROLLING: 2 }
-
 export default {
   name: 'FadeScroll',
   props: {
@@ -58,7 +56,7 @@ export default {
       imgDiff: 0, // 실제 이미지 높이와 캔버스 높이 차이
       imgListHeight: 0,
       cntPerPage: 1,
-      canvasStyle: null,
+      canvasStyle: { position: 'absolute' },
       io: null,
       isShowContent: false,
       isFixed: false,
