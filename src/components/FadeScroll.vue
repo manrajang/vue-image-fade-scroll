@@ -19,6 +19,9 @@ function isScroll (node) {
 function findScroll (node) {
   return (!node || node === document.body) ? window : (isScroll(node) ? node : findScroll(node.parentNode))
 }
+function getOffsetWidth (node) {
+  return node.innerWidth || node.offsetWidth
+}
 function getOffsetHeight (node) {
   return node.innerHeight || node.offsetHeight
 }
@@ -48,20 +51,21 @@ export default {
   },
   data () {
     return {
-      scrollEl: null,
+      scrollEl: null, // 스크롤 있는 Dom
       canvas: null,
       ctx: null,
+      canvasWidth: 0,
       canvasHeight: 0,
       imgHeight: 0,
       imgHeightDiff: 0, // 실제 이미지 높이와 캔버스 높이 차이
       imgListHeight: 0,
-      cntPerPage: 1,
+      cntPerPage: 1, // 받아온 높이로 현재 화면에 표시 할 수 있는 이미지 개수
       canvasStyle: { position: 'absolute' },
       io: null,
-      isShowContent: false,
-      isFixed: false,
+      isShowContent: false, // 이미지가 있는 Conatiner 영역의 보여지는 여부
+      isFixed: false, // Container 영역이 스크롤 탑에 붙으면 페이드 효과 시작
       isScrolling: false,
-      loadedImgList: [],
+      loadedImgList: [], // 현재 불려진 이미지 목록
       curImgIndex: -1,
     }
   },
@@ -97,6 +101,7 @@ export default {
   methods: {
     initInfo () {
       const { length } = this.imgList
+      this.canvasWidth = getOffsetWidth(this.scrollEl)
       this.canvasHeight = getOffsetHeight(this.scrollEl)
       this.imgHeight = this.canvasHeight > this.height ? this.height : this.canvasHeight
       this.imgHeightDiff = Math.max(this.canvasHeight - this.imgHeight, 0)
@@ -179,12 +184,12 @@ export default {
     },
     async render () {
       const { top, bottom } = this.getBounds()
-      const scrollX = Math.abs(top) - this.imgHeightDiff
+      const scrollY = Math.abs(top) - this.imgHeightDiff
       const { length } = this.imgList
       this.isFixed = top <= 0 && bottom >= this.imgHeight
       // 스크롤 위치로 현재 이미지 인덱스 찾기
       for (let i = 0; i < length; i++) {
-        if (scrollX < this.canvasHeight * i) {
+        if (scrollY < this.canvasHeight * i) {
           if (this.curImgIndex !== i) {
             this.curImgIndex = i
             await this.loadImageList()
@@ -199,18 +204,18 @@ export default {
       }
       if (this.isFixed) {
         const totalListHeight = this.canvasHeight * (length - 1)
-        if (scrollX < 0) {
+        if (scrollY < 0) {
           // 현재 위치가 음수이면 아직 페이드 효과 시작 전
           // 이미지를 사이즈에 맞게 리스트 형식으로 그리기
           this.renderList(this.curImgIndex, 0, -top)
-        } else if (scrollX > totalListHeight) {
+        } else if (scrollY > totalListHeight) {
           // 총 스크롤 영역보다 크면 마지막 페이드 효과 종료 후
           // 이미지 한장 그리기 (페이드 효과 - 전체 높이에서 점점 줄어들기)
           this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
           this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalListHeight - scrollX)
         } else {
           // 이미지 페이드 효과 처리
-          this.renderFade(scrollX - (this.canvasHeight * (this.curImgIndex - 1)))
+          this.renderFade(scrollY - (this.canvasHeight * (this.curImgIndex - 1)))
         }
       } else {
         // 페이드 영역에 도달 하지 않았을 때에는 이미지 리스트로 그리기
