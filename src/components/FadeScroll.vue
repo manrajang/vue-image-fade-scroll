@@ -1,7 +1,7 @@
 <template>
   <div ref="container" style="position: relative; font-size: 0;">
-    <canvas id="content" :style="canvasStyle" :width="width" :height="canvasHeight"/>
-    <div ref="fake" :style="{ display: 'inline-block', width: `${width}px`, height: `${imgListHeight}px` }"></div>
+    <canvas id="content" :style="canvasStyle" :width="convertWidth" :height="canvasHeight"/>
+    <div ref="fake" :style="{ display: 'inline-block', width: `${convertWidth}px`, height: `${imgListHeight}px` }"></div>
   </div>
 </template>
 
@@ -67,6 +67,7 @@ export default {
       isScrolling: false,
       loadedImgList: [], // 현재 불려진 이미지 목록
       curImgIndex: -1,
+      convertWidth: this.width,
     }
   },
   watch: {
@@ -103,6 +104,10 @@ export default {
       const { length } = this.imgList
       this.canvasWidth = getOffsetWidth(this.scrollEl)
       this.canvasHeight = getOffsetHeight(this.scrollEl)
+      if (this.convertWidth > this.canvasWidth) {
+        const { left, right } = this.$refs.container.getBoundingClientRect()
+        this.convertWidth = right - left
+      }
       this.imgHeight = this.canvasHeight > this.height ? this.height : this.canvasHeight
       this.imgHeightDiff = Math.max(this.canvasHeight - this.imgHeight, 0)
       this.imgListHeight = this.canvasHeight * length + this.imgHeightDiff
@@ -212,7 +217,7 @@ export default {
           // 총 스크롤 영역보다 크면 마지막 페이드 효과 종료 후
           // 이미지 한장 그리기 (페이드 효과 - 전체 높이에서 점점 줄어들기)
           this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
-          this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalListHeight - scrollX)
+          this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalListHeight - scrollY)
         } else {
           // 이미지 페이드 효과 처리
           this.renderFade(scrollY - (this.canvasHeight * (this.curImgIndex - 1)))
