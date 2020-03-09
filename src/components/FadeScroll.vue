@@ -160,31 +160,40 @@ export default {
       const top = this.$refs.container.offsetTop - getScrollTop(this.scrollEl)
       return { top, bottom: top + this.imgListHeight }
     },
-    renderImg ({ img }, y, clipY, clipHeight) {
+    renderImg (img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) {
       this.ctx.save()
       this.ctx.beginPath()
-      this.ctx.rect(0, clipY, this.width, clipHeight)
-      this.ctx.clip()
-      this.ctx.drawImage(img, 0, y, this.width, this.canvasHeight)
+      this.ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
       this.ctx.restore()
     },
-    renderList (startIndex, yInc = 0, clipYInc = 0) {
+    renderTopList (startIndex, yInc = 0) {
       for (let i = startIndex, j = 0, length = i + this.cntPerPage; i < length; i++, j++) {
         const img = this.loadedImgList.find(findItem(i))
         if (img) {
-          const y = this.imgHeight * j - yInc
-          this.renderImg(img, y, y + clipYInc, this.imgHeight)
+          const imgHeight = this.imgHeight + yInc
+          const y = imgHeight * j
+          this.renderImg(img.img, 0, y, this.width, imgHeight, 0, y, this.width, imgHeight)
         }
       }
     },
-    renderFade (inc = 0) {
+    renderBottomList (startIndex) {
+      for (let i = startIndex, j = 0, length = i + this.cntPerPage; i < length; i++, j++) {
+        const img = this.loadedImgList.find(findItem(i))
+        if (img) {
+          const imgHeight = (this.imgHeight - this.imgHeightDiff) * j + this.imgHeightDiff
+          this.renderImg(img.img, 0, (this.imgHeight - this.imgHeightDiff) * (1 - j), this.width, imgHeight, 0, this.imgHeightDiff * j, this.width, imgHeight)
+        }
+      }
+    },
+    renderFade (yInc = 0) {
       const curImg = this.loadedImgList.find(findItem(this.curImgIndex))
       if (curImg) {
-        this.renderImg(curImg, 0, 0, inc)
+        this.renderImg(curImg.img, 0, 0, this.width, yInc, 0, 0, this.width, yInc)
       }
       const prevImg = this.loadedImgList.find(findItem(this.curImgIndex - 1))
       if (prevImg) {
-        this.renderImg(prevImg, 0, inc, this.canvasHeight - inc)
+        const imgHeight = this.canvasHeight - yInc
+        this.renderImg(prevImg.img, 0, yInc, this.width, imgHeight, 0, yInc, this.width, imgHeight)
       }
     },
     async render () {
@@ -212,22 +221,24 @@ export default {
         if (scrollY < 0) {
           // 현재 위치가 음수이면 아직 페이드 효과 시작 전
           // 이미지를 사이즈에 맞게 리스트 형식으로 그리기
-          this.renderList(this.curImgIndex, 0, -top)
+          this.renderTopList(this.curImgIndex, -top)
         } else if (scrollY > totalListHeight) {
           // 총 스크롤 영역보다 크면 마지막 페이드 효과 종료 후
           // 이미지 한장 그리기 (페이드 효과 - 전체 높이에서 점점 줄어들기)
+          const imgHeight = this.canvasHeight + totalListHeight - scrollY
           this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
-          this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)), 0, 0, this.canvasHeight + totalListHeight - scrollY)
+          this.renderImg(this.loadedImgList.find(findItem(this.curImgIndex)).img, 0, 0, this.width, imgHeight, 0, 0, this.width, imgHeight)
         } else {
           // 이미지 페이드 효과 처리
+          this.ctx.clearRect(0, 0, this.width, this.canvasHeight)
           this.renderFade(scrollY - (this.canvasHeight * (this.curImgIndex - 1)))
         }
       } else {
         // 페이드 영역에 도달 하지 않았을 때에는 이미지 리스트로 그리기
         if (top > 0) {
-          this.renderList(0)
+          this.renderTopList(0)
         } else if (bottom < this.imgHeight) {
-          this.renderList(this.curImgIndex - 1, this.imgHeight - this.imgHeightDiff)
+          this.renderBottomList(this.curImgIndex - 1)
         }
       }
     },
