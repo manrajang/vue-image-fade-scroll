@@ -57,6 +57,7 @@ export default {
       canvasWidth: 0,
       canvasHeight: 0,
       imgHeight: 0,
+      realImgHeight: 0,
       imgHeightDiff: 0, // 실제 이미지 높이와 캔버스 높이 차이
       imgListHeight: 0,
       cntPerPage: 1, // 받아온 높이로 현재 화면에 표시 할 수 있는 이미지 개수
@@ -163,7 +164,18 @@ export default {
     renderImg (img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) {
       this.ctx.save()
       this.ctx.beginPath()
-      this.ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+      const { width, height } = img
+      let newSx = 0
+      if (width > this.width) {
+        newSx = (width - this.width) / 2
+      }
+      if (height < this.canvasHeight) {
+        const scale = this.canvasHeight / height
+        const reverseScale = height / this.canvasHeight
+        this.ctx.drawImage(img, newSx, sy * reverseScale, sWidth, sHeight, dx, dy, dWidth * scale, dHeight * scale)
+      } else {
+        this.ctx.drawImage(img, newSx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+      }
       this.ctx.restore()
     },
     renderTopList (startIndex, yInc = 0) {
