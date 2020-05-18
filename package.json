@@ -1,13 +1,13 @@
 {
   "name": "vue-image-fade-scroll",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "private": false,
   "main": "dist/imageFadeScroll.common.js",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "bundle": "vue-cli-service build --target lib --name imageFadeScroll ./src/components/index.js"
+    "bundle": "vue-cli-service build --target lib --name imageFadeScroll ./src/components/FadeScroll.vue"
   },
   "dependencies": {
     "core-js": "^3.4.4",
@@ -32,20 +32,27 @@
     "dist/imageFadeScroll.common.js",
     "README.md"
   ],
-  "author": {
-    "name": "manrajang",
-    "email": "manrajang@gmail.com"
-  },
+  "author": "manrajang <manrajang@gmail.com>",
   "keywords": [
     "vue",
     "vue-img-fade-scroll",
     "vue-image-fade-scroll",
     "fade-scroll",
     "img-fade-scroll",
-    "image-fade-scroll"
+    "image-fade-scroll",
+    "fade scroll",
+    "img fade scroll",
+    "image fade scroll",
+    "img fade",
+    "image fade"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/manrajang/vue-img-fade-scroll"
-  }
+    "url": "git+https://github.com/manrajang/vue-image-fade-scroll.git"
+  },
+  "description": "### DEMO https://manrajang.github.io/vue-img-fade-scroll/",
+  "bugs": {
+    "url": "https://github.com/manrajang/vue-image-fade-scroll/issues"
+  },
+  "homepage": "https://github.com/manrajang/vue-image-fade-scroll#readme"
 }

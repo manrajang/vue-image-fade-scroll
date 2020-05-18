@@ -20,6 +20,6 @@ git commit -m 'deploy'
 # git push -f git@github.com:manrajang/manrajang.github.io.git master
 
 # if you are deploying to https://<USERNAME>.github.io/<REPO>
-git push -f git@github.com:manrajang/vue-img-fade-scroll.git master:gh-pages
+git push -f git@github.com:manrajang/vue-image-fade-scroll.git master:gh-pages
 
 cd -
