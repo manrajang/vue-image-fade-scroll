@@ -1,7 +1,7 @@
 # vue-image-fade-scroll
 
 ### DEMO
-https://manrajang.github.io/vue-img-fade-scroll/
+https://manrajang.github.io/vue-image-fade-scroll/
 
 ### Install
 ```js
