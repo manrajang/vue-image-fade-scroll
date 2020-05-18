@@ -1,6 +1,6 @@
 {
   "name": "vue-image-fade-scroll",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": false,
   "main": "dist/imageFadeScroll.common.js",
   "scripts": {
