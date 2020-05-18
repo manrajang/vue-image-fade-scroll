@@ -2,8 +2,8 @@
   <div id="app">
   <!-- <div id="app" style="overflow: auto; height: 800px"> -->
     <div v-for="i in 100" :key="i">{{ i }}</div>
-    <fade-scroll :imgList="['img/b.png', 'img/a.jpg', 'img/b.jpg', 'img/c.jpg', 'img/d.jpg']" :width="600" :height="300"/>
-    <div v-for="i in 100" :key="`a${i}`" style="background: red;">{{ i }}</div>
+    <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']" :width="940" :height="1112"/>
+    <div v-for="i in 100" :key="`a${i}`">{{ i }}</div>
   </div>
 </template>
 
