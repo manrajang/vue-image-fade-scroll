@@ -1,6 +1,6 @@
 <template>
-  <div ref="container" :style="{ width: `${fullWidth}px`, height: `${imgListHeight}px` }" style="display:inline-block;position:relative;">
-    <canvas ref="content" style="pointer-events:none;transform-origin:top center;position:absolute;left:0;" :style="canvasStyle" :width="fullWidth" :height="fullHeight"/>
+  <div ref="container" :style="{ width: `${fullWidth}px`, height: `${imgListHeight}px` }" style="display:inline-block;">
+    <canvas ref="content" style="pointer-events:none;transform-origin:top center;position:sticky;top:0;" :width="fullWidth" :height="fullHeight"/>
   </div>
 </template>
 
@@ -52,6 +52,12 @@ function findItem (findIndex) {
   }
 }
 
+const positionStickySupport = (function () {
+  const el = document.createElement('a')
+  el.style.cssText = 'position:sticky;position:-webkit-sticky;position:-ms-sticky;'
+  return el.style.position.indexOf('sticky') !== -1
+}())
+
 export default {
   name: 'FadeScroll',
   props: {
@@ -66,25 +72,17 @@ export default {
       ctx: null,
       fullWidth: 0,
       fullHeight: 0,
-      imgHeight: 0,
       imgListHeight: 0,
-      canvasStyle: null,
       io: null,
       isShowContent: false, // 이미지가 있는 Conatiner 영역의 보여지는 여부
-      isFixed: false, // Container 영역이 스크롤 탑에 붙으면 페이드 효과 시작
       isScrolling: false,
       loadedImgList: [], // 현재 불려진 이미지 목록
       curImgIndex: 0,
     }
   },
-  watch: {
-    isFixed () {
-      this.initCanvasStyle()
-    }
-  },
   mounted () {
     if (!this.scrollEl) {
-      this.scrollEl = findScroll(this.$parent.$el)
+      this.scrollEl = findScroll(this.$el)
     }
     if (!this.canvas) {
       this.canvas = this.$refs.content
@@ -109,30 +107,13 @@ export default {
     init () {
       this.fullWidth = getOffsetWidth(this.scrollEl)
       this.fullHeight = getOffsetHeight(this.scrollEl)
-      this.imgListHeight = this.fullHeight * this.imgList.length
-      // this.scale = this.fullHeight / this.height
-      // this.canvasLeft = this.$refs.container.offsetLeft
-      this.initCanvasStyle()
-    },
-    initCanvasStyle () {
-      // const defaultStyle = { transform: `matrix(${this.scale}, 0, 0, ${this.scale}, 0, 0)` }
-      const { top, bottom } = this.getBounds()
-      if (this.isFixed) {
-        this.canvasStyle = { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${this.$refs.container.offsetLeft}px` }
-      } else {
-        if (top > 0) {
-          this.canvasStyle = { top: 0 }
-        } else if (bottom < this.fullHeight) {
-          this.canvasStyle = { bottom: 0 }
-        }
-      }
+      this.imgListHeight = positionStickySupport ? this.fullHeight * this.imgList.length : this.fullHeight
     },
     initIntersectionObserver () {
       if (!this.io) {
         this.io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => {
           const { top, bottom } = this.getBounds()
           this.isShowContent = isIntersecting
-          this.isFixed = this.isShowContent && top <= 0 && bottom >= this.imgHeight
         }))
       }
       this.io.observe(this.$refs.container)
@@ -155,18 +136,18 @@ export default {
       const top = this.$refs.container.offsetTop - getScrollTop(this.scrollEl)
       return { top, bottom: top + this.imgListHeight }
     },
-    drawImg (img, sx, sy, sHeight, dy, dHeight) {
+    drawImage (img, sx, sy, sHeight, dy, dHeight) {
       this.ctx.save()
       const { width, height } = img
       const scaleWidth = width * this.fullHeight / height
       this.ctx.drawImage(img, sx, sy, width, sHeight, (this.fullWidth - scaleWidth) / 2, dy, scaleWidth, dHeight)
       this.ctx.restore()
     },
-    renderImg (index) {
+    renderImage (index) {
       let img = this.loadedImgList.find(findItem(index))
       if (img) {
         img = img.img
-        this.drawImg(img, 0, 0, img.height, 0, this.fullHeight)
+        this.drawImage(img, 0, 0, img.height, 0, this.fullHeight)
       }
     },
     renderFade (yInc = 0) {
@@ -176,21 +157,21 @@ export default {
         curImg = curImg.img
         const { height } = curImg
         const imageYInc = yInc * height / this.fullHeight
-        this.drawImg(curImg, 0, 0, height - imageYInc, 0, this.fullHeight - yInc)
+        this.drawImage(curImg, 0, 0, height - imageYInc, 0, this.fullHeight - yInc)
       }
       let nextImg = this.loadedImgList.find(findItem(this.curImgIndex + 1))
       if (nextImg) {
         nextImg = nextImg.img
         const { height } = nextImg
         const imageYInc = yInc * height / this.fullHeight
-        this.drawImg(nextImg, 0, height - imageYInc, imageYInc, this.fullHeight - yInc, yInc)
+        this.drawImage(nextImg, 0, height - imageYInc, imageYInc, this.fullHeight - yInc, yInc)
       }
     },
-    async render () {
+    render () {
       const { top, bottom } = this.getBounds()
       const scrollY = Math.abs(top)
       const { length } = this.imgList
-      this.isFixed = top <= 0 && bottom >= this.fullHeight
+      const isFixed = top <= 0 && bottom >= this.fullHeight
       // 스크롤 위치로 현재 이미지 인덱스 찾기
       for (let i = 0; i < length; i++) {
         if (scrollY > this.fullHeight * i) {
@@ -198,15 +179,15 @@ export default {
         }
       }
       this.ctx.clearRect(0, 0, this.fullWidth, this.fullHeight)
-      if (this.isFixed) {
+      if (isFixed) {
         // 이미지 페이드 효과 처리
         this.renderFade(scrollY - this.fullHeight * this.curImgIndex)
       } else {
         // 페이드 영역에 도달 하지 않았을 때에는 이미지 그리기
         if (top > 0) {
-          this.renderImg(0)
+          this.renderImage(0)
         } else if (bottom < this.fullHeight) {
-          this.renderImg(this.curImgIndex)
+          this.renderImage(this.curImgIndex)
         }
       }
     },
