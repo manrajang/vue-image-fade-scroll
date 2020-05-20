@@ -1,6 +1,6 @@
 <template>
-  <div ref="container" :style="{ width: `${width}px`, height: `${imgListHeight}px` }" style="display:inline-block;position:relative;">
-    <canvas ref="content" style="pointer-events:none;transform-origin:top center;position:absolute;left:0;" :style="canvasStyle" :width="width" :height="height"/>
+  <div ref="container" :style="{ width: `${fullWidth}px`, height: `${imgListHeight}px` }" style="display:inline-block;position:relative;">
+    <canvas ref="content" style="pointer-events:none;transform-origin:top center;position:absolute;left:0;" :style="canvasStyle" :width="fullWidth" :height="fullHeight"/>
   </div>
 </template>
 
@@ -18,9 +18,9 @@ function isScroll (node) {
 function findScroll (node) {
   return (!node || node === document.body) ? window : (isScroll(node) ? node : findScroll(node.parentNode))
 }
-// function getOffsetWidth (node) {
-//   return node.innerWidth || node.offsetWidth
-// }
+function getOffsetWidth (node) {
+  return node.innerWidth || node.offsetWidth
+}
 function getFullHeight () {
   const ruler = document.createElement('div')
   ruler.style.position = 'fixed'
@@ -56,14 +56,15 @@ export default {
   name: 'FadeScroll',
   props: {
     imgList: { type: Array, required: true },
-    width: { type: Number, default: 800 },
-    height: { type: Number, default: 600 },
+    // width: { type: Number, default: 800 },
+    // height: { type: Number, default: 600 },
   },
   data () {
     return {
       scrollEl: null, // 스크롤 있는 Dom
       canvas: null,
       ctx: null,
+      fullWidth: 0,
       fullHeight: 0,
       imgHeight: 0,
       imgListHeight: 0,
@@ -74,8 +75,6 @@ export default {
       isScrolling: false,
       loadedImgList: [], // 현재 불려진 이미지 목록
       curImgIndex: 0,
-      scale: 1,
-      canvasLeft: 0,
     }
   },
   watch: {
@@ -108,22 +107,23 @@ export default {
   },
   methods: {
     init () {
+      this.fullWidth = getOffsetWidth(this.scrollEl)
       this.fullHeight = getOffsetHeight(this.scrollEl)
       this.imgListHeight = this.fullHeight * this.imgList.length
-      this.scale = this.fullHeight / this.height
-      this.canvasLeft = this.$refs.container.offsetLeft
+      // this.scale = this.fullHeight / this.height
+      // this.canvasLeft = this.$refs.container.offsetLeft
       this.initCanvasStyle()
     },
     initCanvasStyle () {
-      const defaultStyle = { transform: `matrix(${this.scale}, 0, 0, ${this.scale}, 0, 0)` }
+      // const defaultStyle = { transform: `matrix(${this.scale}, 0, 0, ${this.scale}, 0, 0)` }
       const { top, bottom } = this.getBounds()
       if (this.isFixed) {
-        this.canvasStyle = { ...defaultStyle, top: `${Math.abs(top) || 0}px` }
+        this.canvasStyle = { position: 'fixed', top: `${this.scrollEl.offsetTop || 0}px`, left: `${this.$refs.container.offsetLeft}px` }
       } else {
         if (top > 0) {
-          this.canvasStyle = { ...defaultStyle, top: 0 }
+          this.canvasStyle = { top: 0 }
         } else if (bottom < this.fullHeight) {
-          this.canvasStyle = { ...defaultStyle, bottom: `${this.fullHeight - this.height}px` }
+          this.canvasStyle = { bottom: 0 }
         }
       }
     },
@@ -158,32 +158,32 @@ export default {
     drawImg (img, sx, sy, sHeight, dy, dHeight) {
       this.ctx.save()
       const { width, height } = img
-      const scaleWidth = width * this.height / height
-      this.ctx.drawImage(img, sx, sy, width, sHeight, (this.width - scaleWidth) / 2, dy, scaleWidth, dHeight)
+      const scaleWidth = width * this.fullHeight / height
+      this.ctx.drawImage(img, sx, sy, width, sHeight, (this.fullWidth - scaleWidth) / 2, dy, scaleWidth, dHeight)
       this.ctx.restore()
     },
     renderImg (index) {
       let img = this.loadedImgList.find(findItem(index))
       if (img) {
         img = img.img
-        this.drawImg(img, 0, 0, img.height, 0, this.height)
+        this.drawImg(img, 0, 0, img.height, 0, this.fullHeight)
       }
     },
     renderFade (yInc = 0) {
-      const canvasYInc = yInc / this.scale
+      // const canvasYInc = yInc / this.scale
       let curImg = this.loadedImgList.find(findItem(this.curImgIndex))
       if (curImg) {
         curImg = curImg.img
         const { height } = curImg
         const imageYInc = yInc * height / this.fullHeight
-        this.drawImg(curImg, 0, 0, height - imageYInc, 0, this.height - canvasYInc)
+        this.drawImg(curImg, 0, 0, height - imageYInc, 0, this.fullHeight - yInc)
       }
       let nextImg = this.loadedImgList.find(findItem(this.curImgIndex + 1))
       if (nextImg) {
         nextImg = nextImg.img
         const { height } = nextImg
         const imageYInc = yInc * height / this.fullHeight
-        this.drawImg(nextImg, 0, height - imageYInc, imageYInc, this.height - canvasYInc, canvasYInc)
+        this.drawImg(nextImg, 0, height - imageYInc, imageYInc, this.fullHeight - yInc, yInc)
       }
     },
     async render () {
@@ -197,7 +197,7 @@ export default {
           this.curImgIndex = i
         }
       }
-      this.ctx.clearRect(0, 0, this.width, this.height)
+      this.ctx.clearRect(0, 0, this.fullWidth, this.fullHeight)
       if (this.isFixed) {
         // 이미지 페이드 효과 처리
         this.renderFade(scrollY - this.fullHeight * this.curImgIndex)
@@ -214,7 +214,6 @@ export default {
       if (!this.isScrolling) {
         window.requestAnimationFrame(() => {
           if (this.isShowContent) {
-            this.initCanvasStyle()
             this.render()
           }
           this.isScrolling = false

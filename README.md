@@ -13,7 +13,7 @@ Vue.use(VueImageFadeScroll)
 
 ### Example
 ```html
-<vue-image-fade-scroll :imgList="['img/a.jpg', 'img/b.jpg', 'img/c.jpg', 'img/d.jpg']" :width="600" :height="600"/>
+<vue-image-fade-scroll :imgList="['img/a.jpg', 'img/b.jpg', 'img/c.jpg', 'img/d.jpg']"/>
 ```
 ```js
 import VueImageFadeScroll from 'vue-image-fade-scroll'
@@ -27,5 +27,3 @@ components: {
 | Prop                          | Type               | Default     | Description                              |
 |-------------------------------|--------------------|:-----------:|------------------------------------------|
 | imgList                       | Array              | --          | Image List (required)                    |
-| width                         | Number             | 800         | Image Width                              |
-| height                        | Number             | 600         | Image Height                             |

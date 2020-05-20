@@ -3,15 +3,15 @@
   <!-- <div id="app" style="overflow: auto; height: 800px"> -->
     <div v-for="i in 10" :key="i">{{ i }}</div>
     <div>
-      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']" :width="940" :height="1112"/>
+      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']"/>
     </div>
     <div v-for="i in 20" :key="`a${i}`">{{ i }}</div>
     <div>
-      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']" :width="640" :height="800"/>
+      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']"/>
     </div>
     <div v-for="i in 20" :key="`b${i}`">{{ i }}</div>
     <div>
-      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']" :width="1200" :height="2000"/>
+      <fade-scroll :imgList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']"/>
     </div>
     <div v-for="i in 20" :key="`c${i}`">{{ i }}</div>
   </div>
