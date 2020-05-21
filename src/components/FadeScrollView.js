@@ -3,7 +3,7 @@ import 'intersection-observer'
 const regex = /(auto|scroll)/
 const isStickySupport = (function () {
   const el = document.createElement('a')
-  el.style.cssText = 'position:sticky;position:-webkit-sticky;position:-ms-sticky;'
+  el.setAttribute('style', 'position:sticky;position:-webkit-sticky;position:-ms-sticky;')
   return el.style.position.indexOf('sticky') !== -1
 }())
 
@@ -18,10 +18,7 @@ function findScroll (node) {
 }
 function getFullHeight () {
   const ruler = document.createElement('div')
-  ruler.style.position = 'fixed'
-  ruler.style.height = '100vh'
-  ruler.style.width = 0
-  ruler.style.top = 0
+  ruler.setAttribute('style', 'position:fixed;height:100vh;width:0;top:0;')
   document.documentElement.appendChild(ruler)
   const height = ruler.offsetHeight
   document.documentElement.removeChild(ruler)
@@ -46,11 +43,7 @@ function loadImage (src) {
 }
 function createCanvas () {
   const canvas = document.createElement('canvas')
-  const { style } = canvas
-  style.pointerEvents = 'none'
-  style.position = 'sticky'
-  style.transformOrigin = 'top center'
-  style.top = '0px'
+  canvas.setAttribute('style', 'pointer-events:none;position:sticky;transform-origin:top center;top:0px;')
   return canvas
 }
 async function loadImageList (imagePathList) {
@@ -138,10 +131,7 @@ export default class FadeScrollView {
     this.el.appendChild(this.canvas)
   }
   initDomStyle () {
-    const { style } = this.el
-    style.display = 'inline-block'
-    style.width = `${this.fullWidth}px`
-    style.height = `${this.containerHeight}px`
+    this.el.setAttribute('style', `display:inline-block;width:${this.fullWidth}px;height:${this.containerHeight}px;`)
     this.canvas.width = this.fullWidth
     this.canvas.height = this.fullHeight
   }
