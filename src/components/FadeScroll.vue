@@ -9,6 +9,7 @@ export default {
   name: 'FadeScroll',
   props: {
     imagePathList: { type: Array, required: true },
+    isHorizontal: { type: Boolean, default: false },
   },
   data () {
     return {
@@ -21,6 +22,14 @@ export default {
     imagePathList (value) {
       if (this.fadeScrollView) {
         this.fadeScrollView.setImagePathList(value)
+      }
+    },
+    isHorizontal: {
+      immediate: true,
+      handler (value) {
+        if (this.fadeScrollView) {
+          this.fadeScrollView.isHorizontal = value
+        }
       }
     }
   },

@@ -8,7 +8,7 @@
     </div>
     <div v-for="i in 20" :key="`a${i}`">{{ i }}</div>
     <div>
-      <fade-scroll :imagePathList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']"/>
+      <fade-scroll :imagePathList="['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png']" isHorizontal/>
     </div>
     <div style="height:400px;overflow:auto;">
       <div v-for="i in 20" :key="`b${i}`">{{ i }}</div>

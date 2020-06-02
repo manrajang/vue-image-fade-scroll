@@ -1,5 +1,3 @@
-import 'intersection-observer'
-
 const regex = /(auto|scroll)/
 const isStickySupport = (function () {
   const el = document.createElement('a')
@@ -60,52 +58,35 @@ export default class FadeScrollView {
     this.el = el
     this.imagePathList = imagePathList
     this.scrollEl = findScroll(el) // 스크롤 있는 Dom
-    this.canvas = createCanvas(el)
+    this.canvas = createCanvas()
     this.ctx = this.canvas.getContext('2d')
     this.fullWidth = 0
     this.fullHeight = 0
     this.containerHeight = 0
-    this.intersectionObserver = null
-    this.isShowContent = false // 이미지가 있는 Conatiner 영역의 보여지는 여부
     this.isScrolling = false
     this.imageList = [] // 현재 불려진 이미지 목록
     this.imageIndex = 0
     this.onScroll = null
     this.onResize = null
+    this.isHorizontal = false
+    this.onScroll = this._onScroll.bind(this)
+    this.onResize = this._onResize.bind(this)
     this.addEventListener()
   }
   init () {
-    this.initIntersectionObserver()
     if (this.imageList.length) {
-      this.render()
+      this.initRender()
     } else {
       this.loadImageList()
     }
   }
-  initIntersectionObserver () {
-    if (!this.intersectionObserver) {
-      this.intersectionObserver = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => this.isShowContent = isIntersecting))
-    }
-    this.intersectionObserver.observe(this.el)
-  }
   addEventListener () {
-    this.onScroll = () => this._onScroll()
-    this.onResize = () => this._onResize()
     this.scrollEl.addEventListener('scroll', this.onScroll)
     window.addEventListener('resize', this.onResize)
   }
   removeEventListener () {
-    if (this.intersectionObserver) {
-      this.intersectionObserver.disconnect()
-    }
-    if (this.onScroll) {
-      this.onScroll = null
-      this.scrollEl.removeEventListener('scroll', this.onScroll)
-    }
-    if (this.onResize) {
-      this.onResize = null
-      window.removeEventListener('resize', this.onResize)
-    }
+    this.scrollEl.removeEventListener('scroll', this.onScroll)
+    window.removeEventListener('resize', this.onResize)
   }
   getOffsetWidth () {
     return getOffsetWidth(this.scrollEl)
@@ -113,16 +94,16 @@ export default class FadeScrollView {
   getOffsetHeight () {
     return getOffsetHeight(this.scrollEl)
   }
+  loadImageList () {
+    loadImageList(this.imagePathList, this.imageList).then(imageList => {
+      this.imageList = imageList
+      this.initRender()
+    })
+  }
   initSize () {
     this.fullWidth = this.getOffsetWidth()
     this.fullHeight = this.getOffsetHeight()
     this.containerHeight = isStickySupport ? this.fullHeight * this.imageList.length : this.fullHeight
-  }
-  loadImageList () {
-    loadImageList(this.imagePathList, this.imageList).then(imageList => {
-      this.imageList = imageList
-      this.render()
-    })
   }
   initDom () {
     if (this.el.hasChildNodes()) {
@@ -131,14 +112,14 @@ export default class FadeScrollView {
     this.el.appendChild(this.canvas)
   }
   initDomStyle () {
-    this.el.setAttribute('style', `display:inline-block;width:${this.fullWidth}px;height:${this.containerHeight}px;`)
+    this.el.setAttribute('style', `${this.el.getAttribute('style')}display:inline-block;width:${this.fullWidth}px;height:${this.containerHeight}px;`)
     this.canvas.width = this.fullWidth
     this.canvas.height = this.fullHeight
   }
-  render () {
+  initRender () {
     this.initSize()
-    this.initDom()
     this.initDomStyle()
+    this.initDom()
     this.draw()
   }
   setImagePathList (imagePathList) {
@@ -149,31 +130,44 @@ export default class FadeScrollView {
     const top = this.el.offsetTop - getScrollTop(this.scrollEl)
     return { top, bottom: top + this.containerHeight }
   }
-  drawImage (image, sx, sy, sHeight, dy, dHeight) {
+  drawImage (image, sy, sHeight, dy, dHeight) {
     this.ctx.save()
     const { width, height } = image
     const scaleWidth = width * this.fullHeight / height
-    this.ctx.drawImage(image, sx, sy, width, sHeight, (this.fullWidth - scaleWidth) / 2, dy, scaleWidth, dHeight)
+    this.ctx.drawImage(image, 0, sy, width, sHeight, (this.fullWidth - scaleWidth) / 2, dy, scaleWidth, dHeight)
     this.ctx.restore()
   }
   drawStaticImage (index) {
     const image = this.imageList[index]
     if (image) {
-      this.drawImage(image, 0, 0, image.height, 0, this.fullHeight)
+      this.drawImage(image, 0, image.height, 0, this.fullHeight)
     }
   }
-  drawFadeImage (yInc) {
+  drawHorizontalFadeImage (inc) {
+    this.drawStaticImage(this.imageIndex + 1)
+    const curImage = this.imageList[this.imageIndex]
+    if (curImage) {
+      this.ctx.save()
+      const { width, height } = curImage
+      const scaleWidth = width * this.fullHeight / height
+      const xInc = inc * scaleWidth / this.fullHeight // 스크롤은 Y 축이지만 수평이동일 때, X 축 증가로 변경
+      const imageInc = xInc * width / scaleWidth
+      this.ctx.drawImage(curImage, imageInc, 0, width - imageInc, height, (this.fullWidth - scaleWidth) / 2 + xInc, 0, scaleWidth - xInc, this.fullHeight)
+      this.ctx.restore()
+    }
+  }
+  drawVerticalFadeImage (inc) {
     const curImage = this.imageList[this.imageIndex]
     if (curImage) {
       const { height } = curImage
-      const imageYInc = yInc * height / this.fullHeight
-      this.drawImage(curImage, 0, 0, height - imageYInc, 0, this.fullHeight - yInc)
+      const imageInc = inc * height / this.fullHeight
+      this.drawImage(curImage, 0, height - imageInc, 0, this.fullHeight - inc)
     }
     const nextImage = this.imageList[this.imageIndex + 1]
     if (nextImage) {
       const { height } = nextImage
-      const imageYInc = yInc * height / this.fullHeight
-      this.drawImage(nextImage, 0, height - imageYInc, imageYInc, this.fullHeight - yInc, yInc)
+      const imageInc = inc * height / this.fullHeight
+      this.drawImage(nextImage, height - imageInc, imageInc, this.fullHeight - inc, inc)
     }
   }
   draw () {
@@ -189,7 +183,12 @@ export default class FadeScrollView {
     this.ctx.clearRect(0, 0, this.fullWidth, this.fullHeight)
     if (top <= 0 && bottom >= this.fullHeight) {
       // 이미지 페이드 효과 처리
-      this.drawFadeImage(scrollY - this.fullHeight * this.imageIndex)
+      const inc = scrollY - this.fullHeight * this.imageIndex
+      if (this.isHorizontal) {
+        this.drawHorizontalFadeImage(inc)
+      } else {
+        this.drawVerticalFadeImage(inc)
+      }
     } else {
       // 페이드 영역에 도달 하지 않았을 때에는 이미지 그리기
       if (top > 0) {
@@ -202,7 +201,8 @@ export default class FadeScrollView {
   _onScroll () {
     if (!this.isScrolling) {
       window.requestAnimationFrame(() => {
-        if (this.isShowContent) {
+        const { top } = this.getBounds()
+        if (top < this.fullHeight) {
           this.draw()
         }
         this.isScrolling = false
