@@ -1,33 +1,41 @@
 {
   "name": "vue-image-fade-scroll",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "main": "dist/imageFadeScroll.common.js",
   "scripts": {
     "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
+    "build": "vue-cli-service build --mode production",
     "lint": "vue-cli-service lint",
-    "bundle": "vue-cli-service build --target lib --name imageFadeScroll ./src/components/FadeScroll.vue"
+    "analyze": "vue-cli-service build --mode analyze",
+    "bundle": "vue-cli-service build --mode bundle --target lib --name imageFadeScroll ./src/components/FadeScroll.vue"
   },
   "dependencies": {
-    "core-js": "^3.4.4",
-    "vue": "^2.6.10"
+    "core-js": "^3.6.5",
+    "vue": "^2.6.11"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.1.0",
-    "@vue/cli-plugin-eslint": "^4.1.0",
-    "@vue/cli-service": "^4.1.0",
-    "@vue/eslint-config-standard": "^4.0.0",
-    "babel-eslint": "^10.0.3",
-    "eslint": "^5.16.0",
-    "eslint-plugin-vue": "^5.0.0",
-    "node-sass": "^4.12.0",
-    "sass-loader": "^8.0.0",
-    "vue-template-compiler": "^2.6.10"
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "@vue/cli-plugin-babel": "^4.4.0",
+    "@vue/cli-plugin-eslint": "^4.4.0",
+    "@vue/cli-plugin-typescript": "^4.4.0",
+    "@vue/cli-service": "^4.4.0",
+    "@vue/eslint-config-standard": "^5.1.2",
+    "@vue/eslint-config-typescript": "^5.0.2",
+    "eslint": "^6.7.2",
+    "eslint-plugin-import": "^2.20.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "eslint-plugin-vue": "^6.2.2",
+    "typescript": "~3.9.3",
+    "vue-template-compiler": "^2.6.11",
+    "webpack-bundle-analyzer": "^3.8.0"
   },
   "license": "MIT",
   "files": [
-    "dist/imageFadeScroll.umd.js",
+    "dist/imageFadeScroll.umd.min.js",
     "dist/imageFadeScroll.common.js",
     "README.md"
   ],

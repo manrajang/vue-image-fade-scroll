@@ -1,7 +1,6 @@
 <template>
   <div id="app">
   <!-- <div id="app" style="overflow: auto; height: 800px"> -->
-    <div v-for="i in 10" :key="i">{{ i }}</div>
     <div>
       <button type="button" @click="isChangeList = !isChangeList">리스트 변경</button>
       <fade-scroll :imagePathList="isChangeList ? ['img/apple-0.png', 'img/apple-1.png', 'img/apple-2.png', 'img/apple-0.png', 'img/apple-1.png'] : ['img/apple-2.png', 'img/apple-1.png', 'img/apple-0.png']"/>
@@ -34,7 +33,7 @@ export default {
 }
 </script>
 
-<style lang="scss">
+<style>
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
